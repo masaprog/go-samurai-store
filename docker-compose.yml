@@ -1,0 +1,99 @@
+services:
+  # データベース (MySQL) サービス
+  db:
+    image: mysql:8.0
+    container_name: go-samurai-store-db
+    ports:
+      # ホストPCの3306番ポートを、コンテナの3306番ポートに接続する
+      - "3306:3306"
+    environment:
+      # .envファイルから環境変数を読み込む
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      # DBデータを永続化する（コンテナを消してもデータが残る）
+      - mysql_data:/var/lib/mysql
+    networks:
+      - go-samurai-store-network
+    healthcheck:
+      # MySQLサーバーにpingを送って接続可能かテストする
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "${MYSQL_USER}",
+          "-p${MYSQL_PASSWORD}",
+        ]
+      interval: 10s # 10秒ごとにテストする
+      timeout: 5s # 5秒待って応答がなければ失敗にする
+      retries: 5 # 5回リトライする
+
+  # バックエンド（Go/Gin）サービス
+  backend:
+    container_name: go-samurai-store-backend
+    # backend/Dockerfile.devファイルを使ってビルドする
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      # ホストPCの8080番ポートを、コンテナの8080番ポートに接続する
+      - "8080:8080"
+    volumes:
+      # ホストPCのbackendフォルダとコンテナを同期する（ホットリロードのため）
+      - ./backend:/app
+    environment:
+      # .envファイルからDB接続情報を読み込む
+      DB_DSN: ${DB_DSN}
+      # .envファイルからJWTの秘密鍵を読み込む
+      JWT_SECRET: ${JWT_SECRET}
+      # .envファイルからStripeのシークレットキーとStripe Webhookの署名シークレットを読み込む
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+    depends_on:
+      # dbサービスの「健康診断OK（healthy）」を待ってからbackendサービスを起動する
+      db:
+        condition: service_healthy
+    networks:
+      - go-samurai-store-network
+
+  # フロントエンド（Next.js）サービス
+  frontend:
+    container_name: go-samurai-store-frontend
+    # frontend/Dockerfile.devファイルを使ってビルドする
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      # ホストPCの3000番ポートを、コンテナの3000番ポートに接続する
+      - "3000:3000"
+    volumes:
+      # ホストPCのfrontendフォルダとコンテナを同期する（ホットリロードのため）
+      - ./frontend:/app
+      # node_modulesは同期対象から除外する（パフォーマンス向上のため）
+      - /app/node_modules
+      - /app/.next
+    environment:
+      # APIのベースURLを設定する（フロントエンドからバックエンドへのリクエストに使用）
+      API_BASE_URL: "http://backend:8080"
+      # Next.jsのホットリロードを有効にする
+      WATCHPACK_POLLING: "true"
+    depends_on:
+      # backendサービスが起動してからfrontendサービスを起動する
+      - backend
+    networks:
+      - go-samurai-store-network
+
+# サービス間で通信するためのカスタムネットワーク
+networks:
+  go-samurai-store-network:
+    driver: bridge
+
+# DBデータを永続化するための名前付きボリューム
+volumes:
+  mysql_data:

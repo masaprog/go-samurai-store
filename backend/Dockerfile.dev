@@ -1,0 +1,20 @@
+# Goの公式イメージをベースにする
+FROM golang:1.27-alpine
+
+# ホットリロードツール「air」をインストールする
+RUN go install github.com/air-verse/air@v1.63.1
+
+# コンテナ内の作業ディレクトリを作成する
+WORKDIR /app
+
+# モジュール定義ファイルを先にコピーする
+COPY go.mod go.sum ./
+
+# 依存パッケージをダウンロードする
+RUN go mod download
+
+# アプリケーションの全ソースコードをコピーする
+COPY . .
+
+# サーバーを起動する（go runではなくairを使うことで、ファイル変更時に自動で再起動する）
+CMD ["air"]

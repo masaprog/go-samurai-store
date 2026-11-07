@@ -1,0 +1,2 @@
+DELETE FROM inquiries
+WHERE id BETWEEN 1 AND 5;

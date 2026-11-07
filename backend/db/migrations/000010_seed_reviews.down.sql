@@ -1,0 +1,2 @@
+DELETE FROM reviews
+WHERE id BETWEEN 1 AND 11;

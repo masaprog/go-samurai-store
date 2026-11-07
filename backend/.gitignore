@@ -1,0 +1,21 @@
+/tmp/
+
+# 開発環境でアップロードされた画像をGit管理から除外する
+/uploads/*
+# サンプル画像はGit管理下に置く
+!/uploads/product01.jpg
+!/uploads/product02.jpg
+!/uploads/product03.jpg
+!/uploads/product04.jpg
+!/uploads/product05.jpg
+!/uploads/product06.jpg
+!/uploads/product07.jpg
+!/uploads/product08.jpg
+!/uploads/product09.jpg
+!/uploads/product10.jpg
+!/uploads/product11.jpg
+!/uploads/product12.jpg
+!/uploads/product13.jpg
+!/uploads/product14.jpg
+!/uploads/product15.jpg
+!/uploads/product16.jpg

@@ -1,0 +1,17 @@
+# Node.jsの公式イメージをベースにする
+FROM node:22-alpine
+
+# コンテナ内の作業ディレクトリを作成する
+WORKDIR /app
+
+# 依存パッケージの定義ファイルを先にコピーする
+COPY package.json package-lock.json ./
+
+# 依存パッケージをインストールする
+RUN npm install
+
+# アプリケーションの全ソースコードをコピーする
+COPY . .
+
+# Next.jsの開発用サーバーを起動する
+CMD ["npm", "run", "dev"]
