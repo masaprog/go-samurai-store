@@ -428,7 +428,7 @@ func GetHomePageProductsHandler(c *gin.Context) {
 		for rows.Next() {
 			var p HomePageProduct
 			var imageUrl sql.NullString
-			if err := rows.Scan(&p.ID, &p.Name, &p.Price, &imageUrl); err != nil {
+			if err := rows.Scan(&p.ID, &p.Name, &p.Price, &imageUrl, &p.ReviewAvg, &p.ReviewCount); err != nil {
 				log.Printf("注目商品スキャンエラー: %v", err)
 				hotItemsErr = err
 				return

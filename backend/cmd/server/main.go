@@ -96,13 +96,13 @@ func main() {
 			authorized.GET("/orders", handler.GetOrdersHandler)
 			authorized.GET("/inquiries", handler.ListInquiriesHandler)
 			authorized.GET("/favorites", handler.ListFavoritesHandler)
-			authorized.GET("/favorites", handler.GetFavoriteStatusHandler)
+			authorized.GET("/favorites/:productId", handler.GetFavoriteStatusHandler)
 
 
 			authorized.POST("/products/:id/reviews", handler.CreateReviewHandler)
 			authorized.POST("/favorites", handler.AddFavoriteHandler)
 			
-			authorized.DELETE("/favorites", handler.RemoveFavoriteHandler)
+			authorized.DELETE("/favorites/:productId", handler.RemoveFavoriteHandler)
 
 		}
 
@@ -123,7 +123,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	log.Println("Ginサーバーをポート%sで起動します", port)
+	log.Printf("Ginサーバーをポート%sで起動します", port)
 	router.Run(":" + port)
 }
 
