@@ -68,7 +68,7 @@ func ListFavoritesHandler(c *gin.Context) {
 			&p.Price,
 			&imageUrl,
 		); err != nil {
-			log.Printf("商品データのスキャンエラー: %v", err)
+			log.Printf("お気に入り商品データのスキャンエラー: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "サーバーエラーが発生しました"})
 			return
 		}
