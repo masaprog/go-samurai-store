@@ -1,0 +1,78 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main] # mainブランチへのpushで実行する
+    paths:
+      - "backend/**" # backendディレクトリ以下の変更のみ対象にする
+      - ".github/workflows/backend-cd.yml" # このワークフロー自体の変更も対象にする
+
+# ワークフローレベルでの環境変数（GitHubのRepository secretsから読み込む）
+env:
+  PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }} # Google CloudのプロジェクトID
+  GAR_LOCATION: ${{ secrets.CLOUD_RUN_REGION }} # Artifact Registryのリージョン
+  SERVICE_NAME: ${{ secrets.CLOUD_RUN_BACKEND_SERVICE }} # Cloud Runのサービス名
+  REGION: ${{ secrets.CLOUD_RUN_REGION }} # Cloud Runのリージョン
+  REPO_NAME: ${{ secrets.ARTIFACT_REGISTRY_REPO }} # Artifact Registryのフルパス
+  SQL_CONNECTION_NAME: ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} # Cloud SQLの接続名
+
+jobs:
+  build-push-deploy:
+    name: Build, Push and Deploy Backend
+    runs-on: ubuntu-latest
+    # Google Cloudへの認証に必要な権限
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CLOUD_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile # 本番環境用のDockerfileを使用する
+          push: true # ビルド後にプッシュする
+          tags: ${{ env.REPO_NAME }}/backend:${{ github.sha }} # タグにGitHubのコミットハッシュを使用する
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REPO_NAME }}/backend:${{ github.sha }} # プッシュしたイメージを指定する
+          # 環境変数
+          env_vars: |
+            APP_ENV=production
+            FRONTEND_BASE_URL=${{ secrets.CLOUD_RUN_FRONTEND_URL }}
+            COOKIE_DOMAIN=${{ secrets.CLOUD_RUN_FRONTEND_DOMAIN }}
+            DB_USER=go_samurai_store_user
+            DB_NAME=go_samurai_store_db
+            DB_SOCKET_PATH=/cloudsql/${{ env.SQL_CONNECTION_NAME }}
+          # Google CloudのSecret Managerから取得して設定するシークレット
+          secrets: |
+            DB_PASSWORD=DB_PASSWORD:latest
+            JWT_SECRET=JWT_SECRET:latest
+            STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest
+            STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest
+          flags: >-
+            --add-cloudsql-instances "${{ env.SQL_CONNECTION_NAME }}"
+            --allow-unauthenticated
+
+      - name: Show deployed URL
+        run: echo "Deployed Backend URL：${{ steps.deploy.outputs.url }}"

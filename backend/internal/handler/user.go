@@ -222,8 +222,8 @@ func UpdateUserHandler(c *gin.Context) {
 			newTokenString,      // 新しいJWTトークンの文字列
 			3600,                // 有効期限 (秒)
 			"/",                 // パス
-			"",                  // ドメイン
-			false,               // 暗号化通信（HTTPS）のみを許可するかどうか（本番環境ではtrue）
+			Domain,                  // ドメイン
+			IsSecure,               // 暗号化通信（HTTPS）のみを許可するかどうか（本番環境ではtrue）
 			true,                // JavaScriptからのアクセスを禁止するHttpOnly属性を付与するかどうか
 		)
 	}

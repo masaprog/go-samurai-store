@@ -1,0 +1,99 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-cd.yml"
+
+env:
+  PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT_ID }} # Google CloudのプロジェクトID
+  GAR_LOCATION: ${{ secrets.CLOUD_RUN_REGION }} # Artifact Registryのリージョン
+  SERVICE_NAME: ${{ secrets.CLOUD_RUN_FRONTEND_SERVICE }} # Cloud Runのサービス名
+  REGION: ${{ secrets.CLOUD_RUN_REGION }} # Cloud Runのリージョン
+  REPO_NAME: ${{ secrets.ARTIFACT_REGISTRY_REPO }} # Artifact Registryのフルパス
+
+jobs:
+  lint-build: # LintとBuildを行うジョブ
+    name: Lint and Build Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend # frontendディレクトリでコマンドを実行する
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22" # プロジェクトで使用しているNode.jsのバージョン
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci # いつ誰が実行しても同じ結果になるように、npm installではなくnpm ciを実行する
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Build Next.js app
+        run: npm run build
+        # ビルド時に必要な環境変数を設定する
+        env:
+          API_BASE_URL: ${{ secrets.CLOUD_RUN_BACKEND_URL }}
+
+  build-push-deploy:
+    name: Build, Push and Deploy Frontend
+    needs: lint-build # lint-buildジョブが成功したら実行する
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CLOUD_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile # 本番環境用のDockerfileを使用する
+          push: true
+          tags: ${{ env.REPO_NAME }}/frontend:${{ github.sha }}
+          # ビルド引数で環境変数を渡す
+          build-args: |
+            API_BASE_URL=${{ secrets.CLOUD_RUN_BACKEND_URL }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REPO_NAME }}/frontend:${{ github.sha }}
+          # 環境変数
+          env_vars: |
+            NODE_ENV=production
+            API_BASE_URL=${{ secrets.CLOUD_RUN_BACKEND_URL }}
+          # 認証設定
+          flags: >-
+            --allow-unauthenticated
+
+      - name: Show deployed URL
+        run: echo "Deployed Frontend URL：${{ steps.deploy.outputs.url }}"

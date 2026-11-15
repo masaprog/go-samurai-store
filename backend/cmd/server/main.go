@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -33,8 +34,14 @@ func main() {
 	// Ginのデフォルトルーターを作成する
 	router := gin.Default()
 
+	// CORSを設定する
+	frontendOrigin := os.Getenv("FRONTEND_BASE_URL")
+	if frontendOrigin == "" {
+		frontendOrigin = "http://localhost:3000"
+	}
+
 	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000"},
+		AllowOrigins: []string{frontendOrigin},
 
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 
@@ -84,14 +91,18 @@ func main() {
 			authorized.PUT("/users", handler.UpdateUserHandler)
 			authorized.PUT("/users/password", handler.UpdatePasswordHandler)
 
-
+			
 			authorized.POST("/orders/checkout", handler.CreateCheckoutSessionHandler)
 			authorized.GET("/orders", handler.GetOrdersHandler)
 			authorized.GET("/inquiries", handler.ListInquiriesHandler)
+			authorized.GET("/favorites", handler.ListFavoritesHandler)
+			authorized.GET("/favorites", handler.GetFavoriteStatusHandler)
 
 
 			authorized.POST("/products/:id/reviews", handler.CreateReviewHandler)
-
+			authorized.POST("/favorites", handler.AddFavoriteHandler)
+			
+			authorized.DELETE("/favorites", handler.RemoveFavoriteHandler)
 
 		}
 
@@ -107,17 +118,33 @@ func main() {
 			admin.DELETE("/products/:id", handler.AdminDeleteProductHandler)
 		}
 
-	// Ginサーバーをポート8080で起動する
-	log.Println("Ginサーバーをポート8080で起動します")
-	router.Run(":8080")
+	// Ginサーバーを起動する
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Println("Ginサーバーをポート%sで起動します", port)
+	router.Run(":" + port)
 }
 
 // マイグレーションを実行する関数
 func runMigration() {
-	// 環境変数からDSN（データソース名）を取得する
-	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		log.Fatal("エラー: 環境変数DB_DSNが設定されていません")
+	// 本番環境ではCloud Runで設定した環境変数を使ってDSNを構築する
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbSocketPath := os.Getenv("DB_SOCKET_PATH")
+
+	var dsn string
+	if dbSocketPath != "" {
+		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?charset=utf8mb4&parseTime=true&loc=Local&multiStatements=true",
+			dbUser, dbPass, dbSocketPath, dbName)
+	} else {
+		// 開発環境では.envファイルから環境変数DB_DSNを直接読み込む
+		dsn = os.Getenv("DB_DSN")
+		if dsn == "" {
+			log.Fatal("エラー: 環境変数DB_DSN（開発環境）かDB_SOCKET_PATH（本番環境）のいずれかを設定してください")
+		}
 	}
 
 	log.Println("マイグレーションを開始します...")

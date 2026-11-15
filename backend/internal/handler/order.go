@@ -285,8 +285,11 @@ func CreateCheckoutSessionHandler(c *gin.Context) {
 
 	// フロントエンドのベースURL（リダイレクト先を構築するため）
 	// 本番環境では.envファイルなどから取得する
-	frontendBaseURL := "http://localhost:3000"
-
+	frontendBaseURL := os.Getenv("FRONTEND_BASE_URL")
+	if frontendBaseURL == "" {
+		frontendBaseURL = "http://localhost:3000"
+	}
+	
 	params := &stripe.CheckoutSessionParams{
 		LineItems:     lineItems,
 		Mode:          stripe.String(string(stripe.CheckoutSessionModePayment)),

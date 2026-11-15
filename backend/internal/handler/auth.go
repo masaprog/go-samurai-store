@@ -44,6 +44,10 @@ type JWTCustomClaims struct {
 // JWTトークンの署名に使う秘密鍵を環境変数から取得する
 var JWTSecret = []byte(os.Getenv("JWT_SECRET"))
 
+// クッキーのドメインとセキュア属性を環境変数から取得する
+var Domain = os.Getenv("COOKIE_DOMAIN")
+var IsSecure = os.Getenv("APP_ENV") == "production"
+
 // ブラウザのクッキーに保存する際のクッキー名
 const AuthTokenCookieName = "authToken"
 
@@ -146,8 +150,8 @@ func LoginHandler(c *gin.Context) {
 		tokenString,         // JWTトークンの文字列
 		3600,                // 有効期限（秒）
 		"/",                 // パス
-		"",                  // ドメイン
-		false,               // 暗号化通信（HTTPS）のみを許可するかどうか（本番環境ではtrue）
+		Domain,                  // ドメイン
+		IsSecure,               // 暗号化通信（HTTPS）のみを許可するかどうか（本番環境ではtrue）
 		true,                // JavaScriptからのアクセスを禁止するHttpOnly属性を付与するかどうか
 	)
 
@@ -166,8 +170,8 @@ func LogoutHandler(c *gin.Context) {
 		"", // クッキー名は空文字列にする
 		-1, // 有効期限を過去に設定する
 		"/",
-		"",
-		false,
+		Domain,
+		IsSecure,
 		true,
 	)
 

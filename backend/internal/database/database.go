@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -12,10 +13,22 @@ var db *sql.DB
 
 // データベース接続を初期化し、グローバル変数dbに格納する関数
 func InitDB() {
-	// 環境変数からDSN（データソース名）を取得する
-	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		log.Fatal("エラー: 環境変数DB_DSNが設定されていません")
+	// 本番環境ではCloud Runで設定した環境変数を使ってDSNを構築する
+	dbUser := os.Getenv("DB_USER")
+	dbPass := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbSocketPath := os.Getenv("DB_SOCKET_PATH")
+
+	var dsn string
+	if dbSocketPath != "" {
+		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+			dbUser, dbPass, dbSocketPath, dbName)
+	} else {
+		// 開発環境では.envファイルから環境変数DB_DSNを直接読み込む
+		dsn = os.Getenv("DB_DSN")
+		if dsn == "" {
+			log.Fatal("エラー: 環境変数DB_DSN（開発環境）またはDB_SOCKET_PATH（本番環境）が設定されていません")
+		}
 	}
 
 	// データベースへの接続準備を行う
