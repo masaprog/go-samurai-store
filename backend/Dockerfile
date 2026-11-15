@@ -1,6 +1,6 @@
 # --- 1. ビルドステージ ---
 # Goの公式イメージをベースにする
-FROM golang:1.25-alpine AS builder
+FROM golang:1.27-alpine AS builder
 LABEL stage=builder
 
 # ビルドに必要なツール（git, ca-certificates）をインストール
